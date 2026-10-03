@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Карта мира: баснописцы</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: #e8f5e9;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header {
+      text-align: center;
+      padding: 8px 10px 6px;
+      flex-shrink: 0;
+      background: #e8f5e9;
+    }
+
+    .header h1 {
+      margin: 0 0 2px;
+      font-size: 22px;
+      color: #1b5e20;
+    }
+
+    .header .subtitle {
+      margin: 0;
+      font-size: 13px;
+      color: #555;
+    }
+
+    #map {
+      flex: 1;
+      width: 100%;
+      position: relative;
+      min-height: 0;
+    }
+
+    .legend-bar {
+      position: fixed;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: rgba(255,255,255,0.92);
+      border-radius: 14px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+      z-index: 1000;
+      max-width: 95vw;
+    }
+
+    .legend-item {
+      background: #fff;
+      border: 3px solid;
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      user-select: none;
+      transition: transform 0.15s, box-shadow 0.15s;
+      white-space: nowrap;
+    }
+
+    .legend-item:hover {
+      transform: scale(1.06);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    }
+
+    .legend-item:active {
+      transform: scale(0.95);
+    }
+
+    .leaflet-popup-content-wrapper {
+      border-radius: 14px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.25);
+      border: 3px solid #66bb6a;
+    }
+
+    .leaflet-popup-content {
+      padding: 14px 16px;
+      width: 320px !important;
+      text-align: center;
+    }
+
+    .popup-country {
+      font-weight: bold;
+      font-size: 24px;
+      color: #1b5e20;
+      margin: 4px 0 6px;
+    }
+
+    .popup-author {
+      font-style: italic;
+      font-size: 20px;
+      font-weight: bold;
+      color: #e65100;
+      margin: 0 0 10px;
+    }
+
+    .popup-img-wrapper {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 12px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 4px solid #fff;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+      background: #f0f0f0;
+    }
+
+    .popup-img-wrapper svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .popup-text {
+      font-size: 16px;
+      font-weight: bold;
+      color: #333;
+      line-height: 1.55;
+      text-align: left;
+      padding: 0 4px;
+    }
+
+    .popup-source {
+      font-size: 12px;
+      color: #888;
+      margin-top: 10px;
+      text-align: right;
+      font-weight: normal;
+      font-style: italic;
+    }
+
+    .leaflet-tooltip.country-label {
+      font-size: 16px;
+      font-weight: bold;
+      color: #000000;
+      text-shadow: 0 0 5px #fff, 0 0 5px #fff, 0 0 5px #fff;
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      padding: 0;
+      white-space: nowrap;
+    }
+
+    .leaflet-tooltip.country-label::before {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🗺️ Баснописцы мира</h1>
+    <p class="subtitle">Нажми на карточку внизу или на флажок на карте</p>
+  </div>
+
+  <div id="map"></div>
+
+  <div class="legend-bar">
+    <div class="legend-item" style="border-color:#f1c40f; color:#b7950b;" onclick="goTo(0)">Греция — Эзо́п</div>
+    <div class="legend-item" style="border-color:#e74c3c; color:#c0392b;" onclick="goTo(1)">Древний Рим — Фе́др</div>
+    <div class="legend-item" style="border-color:#8e44ad; color:#6c3483;" onclick="goTo(2)">Франция — Лафонте́н</div>
+    <div class="legend-item" style="border-color:#27ae60; color:#1e8449;" onclick="goTo(3)">Индия — Панчата́нтра</div>
+    <div class="legend-item" style="border-color:#2980b9; color:#1a5276;" onclick="goTo(4)">Россия — Крыло́в</div>
+  </div>
+
+  <script>
+    // SVG-портреты прямо в коде — без внешних картинок
+    var svgs = {
+      aesop: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">'
+        + '<rect x="0" y="0" width="100" height="100" rx="12" fill="#3a2a1a"/>'
+        + '<ellipse cx="50" cy="48" rx="26" ry="30" fill="#c8956a"/>'
+        + '<path d="M24 55 Q22 72 28 85 L72 85 Q78 72 76 55 Q70 62 50 64 Q30 62 24 55Z" fill="#4a3520"/>'
+        + '<path d="M28 58 Q35 66 50 68 Q65 66 72 58 Q68 64 50 65 Q32 64 28 58Z" fill="#5d4530"/>'
+        + '<ellipse cx="50" cy="55" rx="7" ry="8" fill="#a87850"/>'
+        + '<circle cx="40" cy="44" r="4" fill="#fff"/>'
+        + '<circle cx="60" cy="44" r="4" fill="#fff"/>'
+        + '<circle cx="41" cy="45" r="2" fill="#2a1a0a"/>'
+        + '<circle cx="61" cy="45" r="2" fill="#2a1a0a"/>'
+        + '<path d="M34 38 Q40 35 46 39" stroke="#3a2a1a" stroke-width="2" fill="none"/>'
+        + '<path d="M54 39 Q60 35 66 38" stroke="#3a2a1a" stroke-width="2" fill="none"/>'
+        + '<path d="M42 62 Q50 66 58 62" stroke="#7d5a30" stroke-width="2" fill="none"/>'
+        + '<path d="M22 35 Q30 20 50 18 Q70 20 78 35 Q75 25 50 22 Q25 25 22 35Z" fill="#3a2a1a"/>'
+        + '<text x="50" y="96" text-anchor="middle" font-size="7" fill="#a08060" font-family="Georgia">Эзо&#769;п</text>'
+        + '</svg>',
+
+      phaedrus: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">'
+        + '<rect x="0" y="0" width="100" height="100" rx="12" fill="#1a1a2e"/>'
+        + '<ellipse cx="50" cy="50" rx="24" ry="28" fill="#d4a06a"/>'
+        + '<path d="M26 58 Q24 75 30 88 L70 88 Q76 75 74 58 Q68 65 50 67 Q32 65 26 58Z" fill="#8b0000"/>'
+        + '<path d="M30 62 L50 70 L70 62 L66 74 L50 78 L34 74Z" fill="#d4a020"/>'
+        + '<ellipse cx="50" cy="56" rx="6" ry="7" fill="#b89060"/>'
+        + '<circle cx="41" cy="46" r="3.5" fill="#fff"/>'
+        + '<circle cx="59" cy="46" r="3.5" fill="#fff"/>'
+        + '<circle cx="42" cy="47" r="1.8" fill="#1a0a00"/>'
+        + '<circle cx="60" cy="47" r="1.8" fill="#1a0a00"/>'
+        + '<path d="M35 40 Q41 37 47 41" stroke="#3a2a1a" stroke-width="1.8" fill="none"/>'
+        + '<path d="M53 41 Q59 37 65 40" stroke="#3a2a1a" stroke-width="1.8" fill="none"/>'
+        + '<path d="M43 64 Q50 68 57 64" stroke="#8a6030" stroke-width="1.8" fill="none"/>'
+        + '<ellipse cx="50" cy="30" rx="28" ry="6" fill="none" stroke="#228b22" stroke-width="2.5"/>'
+        + '<path d="M24 29 L22 24 L27 26 L25 20 L30 22Z" fill="#2ecc71"/>'
+        + '<path d="M38 28 L36 22 L41 24 L39 18 L44 20Z" fill="#2ecc71"/>'
+        + '<path d="M50 27 L48 21 L53 23 L51 17 L56 19Z" fill="#2ecc71"/>'
+        + '<path d="M62 28 L60 22 L65 24 L63 18 L68 20Z" fill="#2ecc71"/>'
+        + '<path d="M76 29 L74 24 L79 26 L77 20 L82 22Z" fill="#2ecc71"/>'
+        + '<text x="50" y="96" text-anchor="middle" font-size="7" fill="#c0392b" font-family="Georgia">Фе&#769;др</text>'
+        + '</svg>',
+
+      lafontaine: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">'
+        + '<rect x="0" y="0" width="100" height="100" rx="12" fill="#f5f0e0"/>'
+        + '<ellipse cx="50" cy="52" rx="24" ry="28" fill="#e8c4a0"/>'
+        + '<path d="M26 60 Q24 78 30 90 L70 90 Q76 78 74 60 Q68 67 50 69 Q32 67 26 60Z" fill="#4a235a"/>'
+        + '<path d="M32 64 L50 72 L68 64 L64 76 L50 80 L36 76Z" fill="#fdf6e3" stroke="#ddd" stroke-width="0.5"/>'
+        + '<ellipse cx="50" cy="58" rx="6" ry="7" fill="#d4a884"/>'
+        + '<circle cx="41" cy="48" r="3.5" fill="#fff"/>'
+        + '<circle cx="59" cy="48" r="3.5" fill="#fff"/>'
+        + '<circle cx="42" cy="49" r="1.8" fill="#3d2810"/>'
+        + '<circle cx="60" cy="49" r="1.8" fill="#3d2810"/>'
+        + '<path d="M35 42 Q41 39 47 43" stroke="#3d2810" stroke-width="1.8" fill="none"/>'
+        + '<path d="M53 43 Q59 39 65 42" stroke="#3d2810" stroke-width="1.8" fill="none"/>'
+        + '<path d="M43 66 Q50 70 57 66" stroke="#b0785a" stroke-width="1.8" fill="none"/>'
+        + '<path d="M18 38 Q15 20 35 12 Q50 6 65 12 Q85 20 82 38 Q78 22 50 18 Q22 22 18 38Z" fill="#5d4037"/>'
+        + '<path d="M16 36 Q13 18 33 10 Q50 4 67 10 Q87 18 84 36 Q80 20 50 16 Q20 20 16 36Z" fill="#4e342e"/>'
+        + '<path d="M22 30 Q30 22 40 26" stroke="#6d4c41" stroke-width="1.5" fill="none"/>'
+        + '<path d="M78 30 Q70 22 60 26" stroke="#6d4c41" stroke-width="1.5" fill="none"/>'
+        + '<text x="50" y="96" text-anchor="middle" font-size="6" fill="#6c3483" font-family="Georgia">Лафонте&#769;н</text>'
+        + '</svg>',
+
+      panchatantra: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">'
+        + '<rect x="1" y="1" width="98" height="98" rx="8" fill="#FFF8E1" stroke="#C8A951" stroke-width="2"/>'
+        + '<rect x="6" y="6" width="88" height="88" fill="none" stroke="#D4A951" stroke-width="1"/>'
+        + '<circle cx="50" cy="22" r="8" fill="#F39C12"/>'
+        + '<path d="M50 12L50 8 M50 36L50 32 M36 22L32 22 M68 22L64 22 M40 12L37 9 M60 12L63 9 M40 32L37 35 M60 32L63 35" stroke="#E67E22" stroke-width="1.5"/>'
+        + '<path d="M25 30 Q25 28 27 28 L73 28 Q75 28 75 30 L75 84 Q75 86 73 86 L27 86 Q25 86 25 84Z" fill="#A9DFBF" stroke="#27AE60" stroke-width="1.5"/>'
+        + '<path d="M25 28 L75 28 L75 30 L25 30Z" fill="#27AE60"/>'
+        + '<line x1="50" y1="30" x2="50" y2="86" stroke="#27AE60" stroke-width="1"/>'
+        + '<ellipse cx="50" cy="55" rx="20" ry="14" fill="#7DCEA0"/>'
+        + '<ellipse cx="50" cy="52" rx="16" ry="10" fill="#A9DFBF"/>'
+        + '<path d="M36 52 L50 42 L64 52 L50 62Z" stroke="#27AE60" stroke-width="1" fill="none"/>'
+        + '<ellipse cx="72" cy="48" rx="8" ry="5" fill="#7DCEA0"/>'
+        + '<circle cx="76" cy="47" r="1.5" fill="#1B5E20"/>'
+        + '<ellipse cx="35" cy="68" rx="6" ry="4" fill="#7DCEA0"/>'
+        + '<ellipse cx="50" cy="76" rx="6" ry="4" fill="#7DCEA0"/>'
+        + '<ellipse cx="65" cy="68" rx="6" ry="4" fill="#7DCEA0"/>'
+        + '<path d="M40 34 Q35 38 40 42 L44 40Z" fill="#E67E22"/>'
+        + '<path d="M60 34 Q65 38 60 42 L56 40Z" fill="#E67E22"/>'
+        + '<text x="50" y="96" text-anchor="middle" font-size="6" fill="#B7950B" font-family="Georgia">Панчата&#769;нтра</text>'
+        + '</svg>',
+
+      krylov: '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">'
+        + '<rect x="0" y="0" width="100" height="100" rx="12" fill="#8B0000"/>'
+        + '<ellipse cx="50" cy="50" rx="27" ry="31" fill="#e8c4a0"/>'
+        + '<circle cx="36" cy="58" r="7" fill="#f0c4a0" opacity="0.6"/>'
+        + '<circle cx="64" cy="58" r="7" fill="#f0c4a0" opacity="0.6"/>'
+        + '<ellipse cx="50" cy="55" rx="8" ry="9" fill="#d4a884"/>'
+        + '<circle cx="47" cy="53" r="1.5" fill="#b89a70"/>'
+        + '<circle cx="53" cy="53" r="1.5" fill="#b89a70"/>'
+        + '<circle cx="41" cy="46" r="3.8" fill="#fff"/>'
+        + '<circle cx="59" cy="46" r="3.8" fill="#fff"/>'
+        + '<circle cx="42" cy="47" r="2" fill="#2a1a0a"/>'
+        + '<circle cx="60" cy="47" r="2" fill="#2a1a0a"/>'
+        + '<path d="M33 39 Q40 35 48 39" stroke="#5d4037" stroke-width="2.2" fill="none"/>'
+        + '<path d="M52 39 Q60 35 67 39" stroke="#5d4037" stroke-width="2.2" fill="none"/>'
+        + '<path d="M42 66 Q50 72 58 66" stroke="#b0785a" stroke-width="2.2" fill="none"/>'
+        + '<path d="M18 36 Q12 12 40 6 Q50 3 60 6 Q88 12 82 36 Q78 22 50 18 Q22 22 18 36Z" fill="#5d4037"/>'
+        + '<path d="M26 58 Q22 52 26 50 Q30 52 28 58Z" fill="#5d4037"/>'
+        + '<path d="M74 58 Q78 52 74 50 Q70 52 72 58Z" fill="#5d4037"/>'
+        + '<path d="M26 62 Q22 78 30 90 L70 90 Q78 78 74 62 Q68 69 50 71 Q32 69 26 62Z" fill="#2c3e50"/>'
+        + '<text x="50" y="96" text-anchor="middle" font-size="7" fill="#ccc" font-family="Georgia">Крыло&#769;в</text>'
+        + '</svg>'
+    };
+
+    var points = [
+      {
+        coords: [37.98, 23.72],
+        country: 'Греция',
+        author: 'Эзо́п',
+        source: 'Древняя Греция, ~VI век до н. э.',
+        text: 'Первый знаменитый баснописец. Жил в Древней Греции около 2600 лет назад. Его истории про зверей учили мудрости и осторожности. Басни Эзо́па передавались из уст в уста, из поколения в поколение.',
+        tooltipDir: 'right',
+        imgSvg: svgs.aesop
+      },
+      {
+        coords: [41.90, 12.49],
+        country: 'Древний Рим',
+        author: 'Фе́др',
+        source: 'Древний Рим, I век н. э.',
+        text: 'Римский баснописец. Пересказывал басни Эзо́па стихами на латинском языке и придумывал свои собственные. Его басни читали в школах Древнего Рима.',
+        tooltipDir: 'left',
+        imgSvg: svgs.phaedrus
+      },
+      {
+        coords: [48.85, 2.35],
+        country: 'Франция',
+        author: 'Жан де Лафонте́н',
+        source: 'Франция, 1621–1695',
+        text: 'Самый знаменитый французский баснописец. Писал красивые басни стихами. Брал старые сюжеты и рассказывал их по-новому — они стали похожи на маленькие сказки с приключениями.',
+        tooltipDir: 'top',
+        imgSvg: svgs.lafontaine
+      },
+      {
+        coords: [22.59, 78.96],
+        country: 'Индия',
+        author: '«Панчата́нтра»',
+        source: 'Индия, более 2000 лет назад',
+        text: 'Древний сборник басен про хитрых зверей. Учил быть сообразительным, помогать друзьям и не верить обманщикам. Многие сюжеты потом встречались и в баснях других стран.',
+        tooltipDir: 'top',
+        imgSvg: svgs.panchatantra
+      },
+      {
+        coords: [55.75, 37.61],
+        country: 'Россия',
+        author: 'Иван Крыло́в',
+        source: 'Россия, 1769–1844',
+        text: 'Самый известный русский баснописец. В его баснях звери ведут себя как люди: ленятся, хитрят, помогают друг другу. В конце всегда есть мораль — короткий совет, о чём стоит подумать.',
+        tooltipDir: 'top',
+        imgSvg: svgs.krylov
+      }
+    ];
+
+    var map = L.map('map', {
+      center: [30, 20],
+      zoom: 2,
+      minZoom: 2,
+      maxZoom: 6,
+      worldCopyJump: true,
+      zoomControl: false,
+      attributionControl: false
+    });
+
+    fetch('https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_110m_land.geojson')
+      .then(function(r) { return r.json(); })
+      .then(function(geojson) {
+        L.geoJSON(geojson, {
+          style: {
+            fillColor: '#66bb6a',
+            fillOpacity: 0.85,
+            color: '#388e3c',
+            weight: 1.5
+          }
+        }).addTo(map);
+      })
+      .catch(function(e) {
+        console.error('Не удалось загрузить GeoJSON', e);
+      });
+
+    var markers = [];
+
+    points.forEach(function(p, idx) {
+      var imgBlock = '<div class="popup-img-wrapper">' + p.imgSvg + '</div>';
+
+      var popupHtml =
+        '<div class="popup-country">' + p.country + '</div>' +
+        '<div class="popup-author">' + p.author + '</div>' +
+        imgBlock +
+        '<div class="popup-text">' + p.text + '</div>' +
+        '<div class="popup-source">' + p.source + '</div>';
+
+      var marker = L.marker(p.coords).addTo(map);
+      marker.bindPopup(popupHtml, { maxWidth: 340, minWidth: 300 });
+      markers.push(marker);
+
+      marker.bindTooltip(p.country, {
+        permanent: true,
+        direction: p.tooltipDir,
+        className: 'country-label',
+        offset: [0, -12]
+      });
+    });
+
+    function goTo(idx) {
+      if (!map || !points[idx]) return;
+      var p = points[idx];
+      map.flyTo(p.coords, 4, { duration: 1.2 });
+      setTimeout(function() {
+        markers[idx].openPopup();
+      }, 3000);
+    }
+  </script>
+</body>
+</html>
